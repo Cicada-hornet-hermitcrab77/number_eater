@@ -3,20 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Number Finder Game</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Number Eater</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #message {
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            width: 80%;
+            text-align: center;
+        }
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(5, 50px);
+            grid-gap: 5px;
+            margin: 20px 0;
+        }
+        .cell {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #ddd;
+            background-color: #fff;
+        }
+        .player {
+            font-weight: bold;
+            color: #fff;
+        }
+        #controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        #controls button {
+            width: 80px;
+            height: 80px;
+            font-size: 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #controls button:hover {
+            background-color: #0056b3;
+        }
+        #resetButton {
+            width: 100px;
+            height: 40px;
+            font-size: 16px;
+            margin-top: 20px;
+            border: none;
+            border-radius: 5px;
+            background-color: #28a745;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #resetButton:hover {
+            background-color: #218838;
+        }
+    </style>
 </head>
 <body>
-    <h1>Number Finder Game</h1>
-    <div id="message" style="margin: 10px; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9;"></div>
+    <div id="message">Welcome to the Number Eater! Use the buttons or arrow keys to move.</div>
     <div id="grid"></div>
-    <div id="controls" style="margin-top: 10px;">
+    <div id="controls">
         <button id="upButton">Up</button>
         <button id="leftButton">Left</button>
         <button id="downButton">Down</button>
         <button id="rightButton">Right</button>
     </div>
     <button id="resetButton">New Game</button>
+
+    <!-- Include the script from the same directory -->
     <script src="script.js"></script>
 </body>
 </html>
