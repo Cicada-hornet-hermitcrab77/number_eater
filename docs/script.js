@@ -32,14 +32,16 @@ function renderGrid() {
         for (let y = 0; y < gridSize; y++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
+            const cellContent = document.createElement('div');
             if (x === playerPos[0] && y === playerPos[1]) {
-                cell.classList.add('player');
-                cell.textContent = 'P'; // Represent the player with a 'P'
-                cell.style.backgroundColor = playerColor; // Apply stored player color
+                cellContent.classList.add('player');
+                cellContent.textContent = 'P'; // Represent the player with a 'P'
+                cellContent.style.backgroundColor = playerColor; // Apply stored player color
             } else if (typeof grid[x][y] === 'number') {
-                cell.classList.add('number');
-                cell.textContent = grid[x][y];
+                cellContent.classList.add('number');
+                cellContent.textContent = grid[x][y];
             }
+            cell.appendChild(cellContent);
             gridElement.appendChild(cell);
         }
     }
