@@ -22,7 +22,7 @@ function initializeGame() {
     }
 
     renderGrid();
-    displayMessage('Game started! Use arrow keys to move.');
+    displayMessage('Game started! Use arrow keys or buttons to move.');
 }
 
 function renderGrid() {
@@ -71,11 +71,6 @@ function eatNumber() {
         } else if (numberEaten === 9) {
             console.log('Changing player color to green for number 9');
             playerColor = 'green';
-        } else {
-            console.log(`Changing player color to: ${playerColors[currentColorIndex]}`);
-            playerColor = playerColors[currentColorIndex];
-            // Update color index
-            currentColorIndex = (currentColorIndex + 1) % playerColors.length;
         }
         
         // Check if all numbers are eaten
@@ -131,10 +126,14 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+// Add event listeners for control buttons
+document.getElementById('upButton').addEventListener('click', () => movePlayer('up'));
+document.getElementById('downButton').addEventListener('click', () => movePlayer('down'));
+document.getElementById('leftButton').addEventListener('click', () => movePlayer('left'));
+document.getElementById('rightButton').addEventListener('click', () => movePlayer('right'));
+
 // Add event listener for reset button
 document.getElementById('resetButton').addEventListener('click', initializeGame);
 
 // Initialize the game on page load
 initializeGame();
-
-renderGrid();
