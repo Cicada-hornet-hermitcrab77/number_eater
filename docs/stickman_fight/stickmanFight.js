@@ -3,14 +3,18 @@
 const canvas = document.getElementById('fightCanvas');
 const ctx = canvas.getContext('2d');
 
-let player = { x: 100, y: 300, color: 'black', health: 100, canAttack: true, weapon: { range: 60, damage: 15 }, velocityY: 0, isJumping: false, isHit: false, isAttacking: false, attackAngle: 0, limbAngle: 0 };
+let player = { x: 100, y: 300, color: 'black', health: 100, canAttack: true, weapon: { range: 60, damage: 15 }, velocityY: 0, isJumping: false, isHit: false, isAttacking: false, attackAngle: 0, limbAngle: 0, rotationAngle: 0 };
 let npc = { x: 700, y: 300, color: 'red', health: 100, canAttack: true, weapon: { range: 60, damage: 10 }, isHit: false, isAttacking: false, limbAngle: 0 };
+let obstacles = [];
 let keys = {};
 const gravity = 0.5; // Gravity effect
 const jumpStrength = -10; // Jump strength
 const attackCooldown = 1000; // 1 second cooldown
 const hitEffectDuration = 200; // Duration of the hit effect in milliseconds
 const attackEffectDuration = 200; // Duration of the attack effect in milliseconds
+const obstacleSpawnInterval = 2000; // Interval to spawn new obstacles
+const obstacleSpeed = 2; // Speed at which obstacles fall
+const obstacleDamage = 10; // Damage dealt by obstacles
 
 // Load sword image
 const swordImage = new Image();
@@ -23,37 +27,39 @@ swordImage.onerror = function() {
     console.error('Failed to load sword image.');
 };
 
-function drawStickman(x, y, color, isPlayer, limbAngle) {
+function drawStickman(x, y, color, isPlayer, limbAngle, rotationAngle) {
+    ctx.save();
+    ctx.translate(x, y); // Move the origin to the player's position
+    ctx.rotate(rotationAngle); // Rotate for backflip effect
     ctx.strokeStyle = color;
     ctx.beginPath();
-    ctx.arc(x, y - 20, 20, 0, Math.PI * 2, true); // Head
-    ctx.moveTo(x, y);
-    ctx.lineTo(x, y + 50); // Body
+    ctx.arc(0, -20, 20, 0, Math.PI * 2, true); // Head
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 50); // Body
 
     // Legs
-    ctx.moveTo(x, y + 50);
-    ctx.lineTo(x - 20 * Math.cos(limbAngle), y + 100 + 20 * Math.sin(limbAngle)); // Left leg
-    ctx.moveTo(x, y + 50);
-    ctx.lineTo(x + 20 * Math.cos(limbAngle), y + 100 - 20 * Math.sin(limbAngle)); // Right leg
+    ctx.moveTo(0, 50);
+    ctx.lineTo(-20 * Math.cos(limbAngle), 100 + 20 * Math.sin(limbAngle)); // Left leg
+    ctx.moveTo(0, 50);
+    ctx.lineTo(20 * Math.cos(limbAngle), 100 - 20 * Math.sin(limbAngle)); // Right leg
 
     // Arms
-    ctx.moveTo(x, y + 20);
-    ctx.lineTo(x - 20 * Math.cos(limbAngle), y + 50 + 20 * Math.sin(limbAngle)); // Left arm
-    ctx.moveTo(x, y + 20);
-    ctx.lineTo(x + 20 * Math.cos(limbAngle), y + 50 - 20 * Math.sin(limbAngle)); // Right arm
-
+    ctx.moveTo(0, 20);
+    ctx.lineTo(-20 * Math.cos(limbAngle), 50 + 20 * Math.sin(limbAngle)); // Left arm
+    ctx.moveTo(0, 20);
+    ctx.lineTo(20 * Math.cos(limbAngle), 50 - 20 * Math.sin(limbAngle)); // Right arm
     ctx.stroke();
 
     // Draw sword image
     if (isPlayer) {
         ctx.save();
-        ctx.translate(x + 20, y + 10); // Move the origin to the player's hand
+        ctx.translate(20, 10); // Move the origin to the player's hand
         ctx.rotate(player.attackAngle); // Rotate the sword for attack effect
         ctx.drawImage(swordImage, 0, 0, 50, 50); // Adjust position and size as needed
         ctx.restore();
     } else {
         ctx.save();
-        ctx.translate(x - 70, y + 10); // Move the origin to the NPC's left hand
+        ctx.translate(-70, 10); // Move the origin to the NPC's left hand
         ctx.scale(-1, 1); // Flip the image horizontally
         if (npc.isAttacking) {
             ctx.rotate(Math.PI / 4); // Rotate the sword for attack effect
@@ -61,6 +67,7 @@ function drawStickman(x, y, color, isPlayer, limbAngle) {
         ctx.drawImage(swordImage, -50, 0, 50, 50); // Adjust position and size as needed
         ctx.restore();
     }
+    ctx.restore();
 }
 
 function drawHealthBar(x, y, health, color) {
@@ -68,6 +75,50 @@ function drawHealthBar(x, y, health, color) {
     ctx.fillRect(x - 50, y - 60, 100, 10);
     ctx.fillStyle = 'green';
     ctx.fillRect(x - 50, y - 60, health, 10);
+}
+
+function drawObstacles() {
+    ctx.fillStyle = 'gray';
+    obstacles.forEach(obstacle => {
+        ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+    });
+}
+
+function updateObstacles() {
+    obstacles = obstacles.filter(obstacle => {
+        obstacle.y += obstacleSpeed;
+
+        // Check collision with player
+        if (obstacle.x < player.x + 20 && obstacle.x + obstacle.width > player.x - 20 &&
+            obstacle.y < player.y && obstacle.y + obstacle.height > player.y - 50) {
+            player.health -= obstacleDamage;
+            player.isHit = true;
+            setTimeout(() => player.isHit = false, hitEffectDuration);
+            console.log(`Player hit by obstacle! Health: ${player.health}`);
+            return false; // Remove obstacle after collision
+        }
+
+        // Check collision with NPC
+        if (obstacle.x < npc.x + 20 && obstacle.x + obstacle.width > npc.x - 20 &&
+            obstacle.y < npc.y && obstacle.y + obstacle.height > npc.y - 50) {
+            npc.health -= obstacleDamage;
+            npc.isHit = true;
+            setTimeout(() => npc.isHit = false, hitEffectDuration);
+            console.log(`NPC hit by obstacle! Health: ${npc.health}`);
+            return false; // Remove obstacle after collision
+        }
+
+        // Keep obstacle if no collision
+        return obstacle.y < canvas.height;
+    });
+}
+
+function spawnObstacle() {
+    const width = 30;
+    const height = 30;
+    const x = Math.random() * (canvas.width - width);
+    const y = -height; // Start above the canvas
+    obstacles.push({ x, y, width, height });
 }
 
 function update() {
@@ -90,10 +141,14 @@ function update() {
     npc.limbAngle = Math.sin(Date.now() / 200) * 0.5; // Oscillate limb angle
 
     // Draw stickmen with hit effect
-    drawStickman(player.x, player.y, player.isHit ? 'yellow' : player.color, true, player.limbAngle);
-    drawStickman(npc.x, npc.y, npc.isHit ? 'yellow' : npc.color, false, npc.limbAngle);
+    drawStickman(player.x, player.y, player.isHit ? 'yellow' : player.color, true, player.limbAngle, player.rotationAngle);
+    drawStickman(npc.x, npc.y, npc.isHit ? 'yellow' : npc.color, false, npc.limbAngle, 0);
     drawHealthBar(player.x, player.y, player.health, 'black');
     drawHealthBar(npc.x, npc.y, npc.health, 'red');
+
+    // Draw and update obstacles
+    drawObstacles();
+    updateObstacles();
 
     // Player controls
     if (keys['ArrowLeft'] && player.x > 0) {
@@ -111,9 +166,21 @@ function update() {
     player.velocityY += gravity;
     player.y += player.velocityY;
 
-    // Check if player is on the ground
+    // Rotate for backflip if jumping
+    if (player.isJumping) {
+        player.rotationAngle += 0.1; // Adjust rotation speed for backflip
+    } else {
+        player.rotationAngle = 0; // Reset rotation when not jumping
+    }
+
+    // Check if player is on the ground or on top of the NPC
     if (player.y >= 300) { // Assuming 300 is the ground level
         player.y = 300;
+        player.velocityY = 0;
+        player.isJumping = false;
+    } else if (player.y + 50 >= npc.y && player.x > npc.x - 20 && player.x < npc.x + 20) {
+        // Player stands on top of NPC
+        player.y = npc.y - 50;
         player.velocityY = 0;
         player.isJumping = false;
     }
@@ -162,6 +229,9 @@ function update() {
 
     requestAnimationFrame(update);
 }
+
+// Spawn obstacles at regular intervals
+setInterval(spawnObstacle, obstacleSpawnInterval);
 
 window.addEventListener('keydown', (e) => {
     keys[e.key] = true;
