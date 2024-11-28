@@ -3,8 +3,8 @@
 const canvas = document.getElementById('fightCanvas');
 const ctx = canvas.getContext('2d');
 
-let player = { x: 100, y: 300, color: 'black', health: 100, canAttack: true, weapon: { range: 60, damage: 15 }, velocityY: 0, isJumping: false, isHit: false, isAttacking: false, attackAngle: 0, limbAngle: 0, rotationAngle: 0 };
-let npc = { x: 700, y: 300, color: 'red', health: 100, canAttack: true, weapon: { range: 60, damage: 10 }, isHit: false, isAttacking: false, limbAngle: 0 };
+let player = { x: 100, y: 300, color: 'black', health: 100, canAttack: true, weapon: null, velocityY: 0, isJumping: false, isHit: false, isAttacking: false, attackAngle: 0, limbAngle: 0, rotationAngle: 0 };
+let npc = { x: 700, y: 300, color: 'red', health: 100, canAttack: true, weapon: null, isHit: false, isAttacking: false, limbAngle: 0 };
 let obstacles = [];
 let keys = {};
 const gravity = 0.5; // Gravity effect
@@ -16,16 +16,30 @@ const obstacleSpawnInterval = 2000; // Interval to spawn new obstacles
 const obstacleSpeed = 2; // Speed at which obstacles fall
 const obstacleDamage = 10; // Damage dealt by obstacles
 
-// Load sword image
-const swordImage = new Image();
-swordImage.src = 'sword.png'; // Ensure this path is correct
+// Define possible weapons with images
+const weapons = [
+    { name: 'Sword', range: 60, damage: 15, image: 'sword.png' },
+    { name: 'Axe', range: 50, damage: 10, image: 'axe.png' },
+    { name: 'Spear', range: 80, damage: 15, image: 'spear.jpg' },
+    { name: 'Dagger', range: 40, damage: 20, image: 'dagger.png' }
+];
 
-swordImage.onload = function() {
-    console.log('Sword image loaded successfully.');
-};
-swordImage.onerror = function() {
-    console.error('Failed to load sword image.');
-};
+// Load weapon images
+const weaponImages = {};
+weapons.forEach(weapon => {
+    const img = new Image();
+    img.src = weapon.image;
+    img.onload = () => console.log(`${weapon.name} image loaded successfully.`);
+    img.onerror = () => console.error(`Failed to load ${weapon.name} image.`);
+    weaponImages[weapon.name] = img;
+});
+
+// Function to assign a random weapon
+function assignRandomWeapon(character) {
+    const randomIndex = Math.floor(Math.random() * weapons.length);
+    character.weapon = weapons[randomIndex];
+    console.log(`${character === player ? 'Player' : 'NPC'} received a ${character.weapon.name}`);
+}
 
 function drawStickman(x, y, color, isPlayer, limbAngle, rotationAngle) {
     ctx.save();
@@ -50,22 +64,18 @@ function drawStickman(x, y, color, isPlayer, limbAngle, rotationAngle) {
     ctx.lineTo(20 * Math.cos(limbAngle), 50 - 20 * Math.sin(limbAngle)); // Right arm
     ctx.stroke();
 
-    // Draw sword image
-    if (isPlayer) {
-        ctx.save();
-        ctx.translate(20, 10); // Move the origin to the player's hand
-        ctx.rotate(player.attackAngle); // Rotate the sword for attack effect
-        ctx.drawImage(swordImage, 0, 0, 50, 50); // Adjust position and size as needed
-        ctx.restore();
-    } else {
-        ctx.save();
-        ctx.translate(-70, 10); // Move the origin to the NPC's left hand
-        ctx.scale(-1, 1); // Flip the image horizontally
-        if (npc.isAttacking) {
-            ctx.rotate(Math.PI / 4); // Rotate the sword for attack effect
+    // Draw weapon
+    const character = isPlayer ? player : npc;
+    if (character.weapon) {
+        const weaponImage = weaponImages[character.weapon.name];
+        if (weaponImage) {
+            ctx.save();
+            ctx.translate(isPlayer ? 20 : -70, 10); // Move the origin to the character's hand
+            if (!isPlayer) ctx.scale(-1, 1); // Flip the image horizontally for NPC
+            ctx.rotate(character.attackAngle); // Rotate the weapon for attack effect
+            ctx.drawImage(weaponImage, 0, 0, 50, 50); // Adjust position and size as needed
+            ctx.restore();
         }
-        ctx.drawImage(swordImage, -50, 0, 50, 50); // Adjust position and size as needed
-        ctx.restore();
     }
     ctx.restore();
 }
@@ -193,7 +203,7 @@ function update() {
     }
 
     // Player attack
-    if (keys[' '] && player.canAttack) {
+    if (keys[' '] && player.canAttack && player.weapon) { // Check if weapon is assigned
         player.isAttacking = true;
         player.attackAngle = -Math.PI / 4; // Start the sword swing
         setTimeout(() => {
@@ -213,7 +223,7 @@ function update() {
     }
 
     // NPC attack
-    if (npc.canAttack && Math.abs(npc.x - player.x) < npc.weapon.range && Math.abs(npc.y - player.y) < npc.weapon.range) {
+    if (npc.canAttack && npc.weapon && Math.abs(npc.x - player.x) < npc.weapon.range && Math.abs(npc.y - player.y) < npc.weapon.range) {
         console.log('NPC attacks Player');
         player.health -= npc.weapon.damage;
         player.isHit = true;
@@ -229,6 +239,10 @@ function update() {
 
     requestAnimationFrame(update);
 }
+
+// Assign random weapons to player and NPC at the start
+assignRandomWeapon(player);
+assignRandomWeapon(npc);
 
 // Spawn obstacles at regular intervals
 setInterval(spawnObstacle, obstacleSpawnInterval);
