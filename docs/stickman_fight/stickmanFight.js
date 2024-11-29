@@ -3,7 +3,7 @@
 const canvas = document.getElementById('fightCanvas');
 const ctx = canvas.getContext('2d');
 
-let player = { x: 100, y: 300, color: 'black', health: 100, canAttack: true, weapon: null, velocityY: 0, isJumping: false, isHit: false, isAttacking: false, attackAngle: 0, limbAngle: 0, rotationAngle: 0 };
+let player = { x: 100, y: 300, color: 'black', health: 100, canAttack: true, weapon: null, velocityY: 0, isJumping: false, isHit: false, isAttacking: false, attackAngle: 0, limbAngle: 0, rotationAngle: 0, isThrowing: false, thrownWeapon: null };
 let npc = { x: 700, y: 300, color: 'red', health: 100, canAttack: true, weapon: null, isHit: false, isAttacking: false, limbAngle: 0 };
 let obstacles = [];
 let keys = {};
@@ -20,8 +20,10 @@ const obstacleDamage = 10; // Damage dealt by obstacles
 const weapons = [
     { name: 'Sword', range: 60, damage: 15, image: 'sword.png' },
     { name: 'Axe', range: 50, damage: 10, image: 'axe.png' },
-    { name: 'Spear', range: 80, damage: 15, image: 'spear.jpg' },
-    { name: 'Dagger', range: 40, damage: 20, image: 'dagger.png' }
+    { name: 'Spear', range: 80, damage: 10, image: 'spear.png' },
+    { name: 'Dagger', range: 40, damage: 25, image: 'dagger.png' },
+    { name: 'Trident', range: 300, damage: 20, image: 'trident.png', throwable: true }, // Increased range for trident
+    { name: 'Hammer', range: 50, damage: 10, image: 'hammer.png' }
 ];
 
 // Load weapon images
@@ -66,7 +68,7 @@ function drawStickman(x, y, color, isPlayer, limbAngle, rotationAngle) {
 
     // Draw weapon
     const character = isPlayer ? player : npc;
-    if (character.weapon) {
+    if (character.weapon && !character.isThrowing) {
         const weaponImage = weaponImages[character.weapon.name];
         if (weaponImage) {
             ctx.save();
@@ -78,6 +80,15 @@ function drawStickman(x, y, color, isPlayer, limbAngle, rotationAngle) {
         }
     }
     ctx.restore();
+}
+
+function drawThrownWeapon() {
+    if (player.thrownWeapon) {
+        const weaponImage = weaponImages[player.thrownWeapon.name];
+        if (weaponImage) {
+            ctx.drawImage(weaponImage, player.thrownWeapon.x, player.thrownWeapon.y, 50, 50);
+        }
+    }
 }
 
 function drawHealthBar(x, y, health, color) {
@@ -159,6 +170,33 @@ function update() {
     // Draw and update obstacles
     drawObstacles();
     updateObstacles();
+
+    // Draw thrown weapon
+    drawThrownWeapon();
+    if (player.thrownWeapon) {
+        player.thrownWeapon.x += 5; // Move the thrown weapon
+
+        // Define dimensions for collision detection
+        const tridentWidth = 50; // Assuming the trident's width
+        const tridentHeight = 50; // Assuming the trident's height
+        const npcWidth = 40; // Assuming the NPC's width
+        const npcHeight = 100; // Assuming the NPC's height
+
+        // Debugging: Log positions and dimensions
+        console.log(`Trident Position: (${player.thrownWeapon.x}, ${player.thrownWeapon.y})`);
+        console.log(`NPC Position: (${npc.x}, ${npc.y})`);
+
+        // Check collision with NPC
+        if (player.thrownWeapon.x < npc.x + npcWidth &&
+            player.thrownWeapon.x + tridentWidth > npc.x &&
+            player.thrownWeapon.y < npc.y + npcHeight &&
+            player.thrownWeapon.y + tridentHeight > npc.y) {
+            npc.health -= player.thrownWeapon.damage;
+            npc.isHit = true;
+            console.log(`NPC hit by thrown weapon! Health: ${npc.health}`);
+            player.thrownWeapon = null; // Remove the thrown weapon after collision
+        }
+    }
 
     // Player controls
     if (keys['ArrowLeft'] && player.x > 0) {
@@ -250,6 +288,16 @@ setInterval(spawnObstacle, obstacleSpawnInterval);
 window.addEventListener('keydown', (e) => {
     keys[e.key] = true;
     console.log(`Key down: ${e.key}`); // Log key presses
+
+    // Throw the trident with Shift key
+    if (e.key === 'Shift' && player.weapon && player.weapon.name === 'Trident' && player.weapon.throwable && !player.isThrowing) {
+        player.isThrowing = true;
+        player.thrownWeapon = { ...player.weapon, x: player.x, y: player.y };
+        setTimeout(() => {
+            player.isThrowing = false;
+            player.thrownWeapon = null;
+        }, 2000); // Reset after 2 seconds
+    }
 });
 
 window.addEventListener('keyup', (e) => {
