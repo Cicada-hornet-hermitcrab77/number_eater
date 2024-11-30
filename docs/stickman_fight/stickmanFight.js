@@ -22,8 +22,11 @@ const weapons = [
     { name: 'Axe', range: 50, damage: 10, image: 'axe.png' },
     { name: 'Spear', range: 80, damage: 10, image: 'spear.png' },
     { name: 'Dagger', range: 40, damage: 25, image: 'dagger.png' },
-    { name: 'Trident', range: 300, damage: 20, image: 'trident.png', throwable: true }, // Increased range for trident
-    { name: 'Hammer', range: 50, damage: 10, image: 'hammer.png' }
+    { name: 'Trident', range: 300, damage: 20, image: 'trident.png', throwable: true },
+    { name: 'Hammer', range: 50, damage: 10, image: 'hammer.png' },
+    { name: 'Light Saber', range: 70, damage: 21, image: 'lightsaber.png' },
+    { name: 'Pickaxe', range: 55, damage: 12, image: 'pickaxe.png' },
+    { name: 'Club', range: 45, damage: 8, image: 'club.jpg' }
 ];
 
 // Load weapon images
@@ -45,7 +48,7 @@ function assignRandomWeapon(character) {
 
 function drawStickman(x, y, color, isPlayer, limbAngle, rotationAngle) {
     ctx.save();
-    ctx.translate(x, y); // Move the origin to the player's position
+    ctx.translate(x, y); // Move the origin to the character's position
     ctx.rotate(rotationAngle); // Rotate for backflip effect
     ctx.strokeStyle = color;
     ctx.beginPath();
@@ -67,12 +70,12 @@ function drawStickman(x, y, color, isPlayer, limbAngle, rotationAngle) {
     ctx.stroke();
 
     // Draw weapon
-    const character = isPlayer ? player : npc;
-    if (character.weapon && !character.isThrowing) {
+    const character = isPlayer ? player : npc; // Reference to player or NPC
+    if (character && character.weapon && !character.isThrowing) {
         const weaponImage = weaponImages[character.weapon.name];
         if (weaponImage) {
             ctx.save();
-            ctx.translate(isPlayer ? 20 : -70, 10); // Move the origin to the character's hand
+            ctx.translate(isPlayer ? 20 : -20, 10); // Move the origin to the character's hand
             if (!isPlayer) ctx.scale(-1, 1); // Flip the image horizontally for NPC
             ctx.rotate(character.attackAngle); // Rotate the weapon for attack effect
             ctx.drawImage(weaponImage, 0, 0, 50, 50); // Adjust position and size as needed
@@ -92,10 +95,19 @@ function drawThrownWeapon() {
 }
 
 function drawHealthBar(x, y, health, color) {
-    ctx.fillStyle = color;
-    ctx.fillRect(x - 50, y - 60, 100, 10);
+    const maxHealth = 100; // Maximum health value
+    const barWidth = 100; // Maximum width of the health bar
+
+    // Calculate the width of the health bar based on current health
+    const healthWidth = (health / maxHealth) * barWidth;
+
+    // Draw the background of the health bar
+    ctx.fillStyle = 'gray';
+    ctx.fillRect(x - barWidth / 2, y - 60, barWidth, 10);
+
+    // Draw the current health
     ctx.fillStyle = 'green';
-    ctx.fillRect(x - 50, y - 60, health, 10);
+    ctx.fillRect(x - barWidth / 2, y - 60, healthWidth, 10);
 }
 
 function drawObstacles() {
@@ -142,10 +154,15 @@ function spawnObstacle() {
     obstacles.push({ x, y, width, height });
 }
 
+function drawNPC() {
+    drawStickman(npc.x, npc.y, npc.isHit ? 'yellow' : npc.color, false, npc.limbAngle, 0);
+    drawHealthBar(npc.x, npc.y, npc.health, npc.color);
+}
+
 function update() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Check if either stickman is dead
+    // Check if either the player or NPC is dead
     if (player.health <= 0 || npc.health <= 0) {
         ctx.fillStyle = 'black';
         ctx.font = '30px Arial';
@@ -157,15 +174,12 @@ function update() {
         return; // Stop the game loop
     }
 
-    // Update limb angles for flexibility
-    player.limbAngle = Math.sin(Date.now() / 200) * 0.5; // Oscillate limb angle
-    npc.limbAngle = Math.sin(Date.now() / 200) * 0.5; // Oscillate limb angle
-
-    // Draw stickmen with hit effect
+    // Draw player
     drawStickman(player.x, player.y, player.isHit ? 'yellow' : player.color, true, player.limbAngle, player.rotationAngle);
-    drawStickman(npc.x, npc.y, npc.isHit ? 'yellow' : npc.color, false, npc.limbAngle, 0);
     drawHealthBar(player.x, player.y, player.health, 'black');
-    drawHealthBar(npc.x, npc.y, npc.health, 'red');
+
+    // Draw and update NPC
+    drawNPC();
 
     // Draw and update obstacles
     drawObstacles();
@@ -176,17 +190,12 @@ function update() {
     if (player.thrownWeapon) {
         player.thrownWeapon.x += 5; // Move the thrown weapon
 
-        // Define dimensions for collision detection
+        // Check collision with NPC
         const tridentWidth = 50; // Assuming the trident's width
         const tridentHeight = 50; // Assuming the trident's height
         const npcWidth = 40; // Assuming the NPC's width
         const npcHeight = 100; // Assuming the NPC's height
 
-        // Debugging: Log positions and dimensions
-        console.log(`Trident Position: (${player.thrownWeapon.x}, ${player.thrownWeapon.y})`);
-        console.log(`NPC Position: (${npc.x}, ${npc.y})`);
-
-        // Check collision with NPC
         if (player.thrownWeapon.x < npc.x + npcWidth &&
             player.thrownWeapon.x + tridentWidth > npc.x &&
             player.thrownWeapon.y < npc.y + npcHeight &&
@@ -221,14 +230,9 @@ function update() {
         player.rotationAngle = 0; // Reset rotation when not jumping
     }
 
-    // Check if player is on the ground or on top of the NPC
+    // Check if player is on the ground
     if (player.y >= 300) { // Assuming 300 is the ground level
         player.y = 300;
-        player.velocityY = 0;
-        player.isJumping = false;
-    } else if (player.y + 50 >= npc.y && player.x > npc.x - 20 && player.x < npc.x + 20) {
-        // Player stands on top of NPC
-        player.y = npc.y - 50;
         player.velocityY = 0;
         player.isJumping = false;
     }
@@ -238,6 +242,21 @@ function update() {
         npc.x -= 1;
     } else if (npc.x < player.x) {
         npc.x += 1;
+    }
+
+    // NPC attack
+    if (npc.canAttack && npc.weapon && Math.abs(npc.x - player.x) < npc.weapon.range && Math.abs(npc.y - player.y) < npc.weapon.range) {
+        console.log('NPC attacks Player');
+        player.health -= npc.weapon.damage;
+        player.isHit = true;
+        npc.isAttacking = true;
+        setTimeout(() => {
+            player.isHit = false;
+            npc.isAttacking = false;
+        }, attackEffectDuration);
+        console.log(`Player Health: ${player.health}`);
+        npc.canAttack = false;
+        setTimeout(() => npc.canAttack = true, attackCooldown);
     }
 
     // Player attack
@@ -256,23 +275,9 @@ function update() {
             setTimeout(() => npc.isHit = false, hitEffectDuration);
             console.log(`NPC Health: ${npc.health}`);
         }
+
         player.canAttack = false;
         setTimeout(() => player.canAttack = true, attackCooldown);
-    }
-
-    // NPC attack
-    if (npc.canAttack && npc.weapon && Math.abs(npc.x - player.x) < npc.weapon.range && Math.abs(npc.y - player.y) < npc.weapon.range) {
-        console.log('NPC attacks Player');
-        player.health -= npc.weapon.damage;
-        player.isHit = true;
-        npc.isAttacking = true;
-        setTimeout(() => {
-            player.isHit = false;
-            npc.isAttacking = false;
-        }, attackEffectDuration);
-        console.log(`Player Health: ${player.health}`);
-        npc.canAttack = false;
-        setTimeout(() => npc.canAttack = true, attackCooldown);
     }
 
     requestAnimationFrame(update);
