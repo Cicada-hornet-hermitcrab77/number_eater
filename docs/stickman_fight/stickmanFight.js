@@ -3,7 +3,7 @@
 const canvas = document.getElementById('fightCanvas');
 const ctx = canvas.getContext('2d');
 
-let player = { x: 100, y: 300, color: 'black', health: 100, canAttack: true, weapon: null, velocityY: 0, isJumping: false, isHit: false, isAttacking: false, attackAngle: 0, limbAngle: 0, rotationAngle: 0, isThrowing: false, thrownWeapon: null };
+let player = { x: 100, y: 300, color: 'black', health: 100, canAttack: true, weapon: null, velocityY: 0, isJumping: false, isHit: false, isAttacking: false, attackAngle: 0, limbAngle: 0, rotationAngle: 0, isThrowing: false, thrownWeapon: null, facingRight: true };
 let npc = { x: 700, y: 300, color: 'red', health: 100, canAttack: true, weapon: null, isHit: false, isAttacking: false, limbAngle: 0 };
 let obstacles = [];
 let keys = {};
@@ -15,6 +15,7 @@ const attackEffectDuration = 200; // Duration of the attack effect in millisecon
 const obstacleSpawnInterval = 2000; // Interval to spawn new obstacles
 const obstacleSpeed = 2; // Speed at which obstacles fall
 const obstacleDamage = 10; // Damage dealt by obstacles
+const knockbackDistance = 20; // Distance to knock back when hit
 
 // Define possible weapons with images
 const weapons = [
@@ -26,7 +27,9 @@ const weapons = [
     { name: 'Hammer', range: 50, damage: 10, image: 'hammer.png' },
     { name: 'Light Saber', range: 70, damage: 21, image: 'lightsaber.png' },
     { name: 'Pickaxe', range: 55, damage: 12, image: 'pickaxe.png' },
-    { name: 'Club', range: 45, damage: 8, image: 'club.jpg' }
+    { name: 'Club', range: 45, damage: 8, image: 'club.jpg' },
+    { name: 'Saw', range: 60, damage: 15, image: 'saw.jpg' },
+    { name: 'Boomerang', range: 150, damage: 10, image: 'boomerang.png', throwable: true }
 ];
 
 // Load weapon images
@@ -159,6 +162,27 @@ function drawNPC() {
     drawHealthBar(npc.x, npc.y, npc.health, npc.color);
 }
 
+// Function to handle throwing weapons
+function throwWeapon() {
+    if (player.weapon && player.weapon.throwable && !player.isThrowing) {
+        console.log('Throwing weapon:', player.weapon.name);
+        player.isThrowing = true;
+        player.thrownWeapon = {
+            ...player.weapon,
+            x: player.x,
+            y: player.y,
+            direction: player.facingRight ? 1 : -1 // Initialize direction based on player's facing direction
+        };
+        console.log('Weapon thrown with direction:', player.thrownWeapon.direction);
+
+        setTimeout(() => {
+            player.isThrowing = false;
+            player.thrownWeapon = null;
+            console.log('Weapon reset after timeout');
+        }, player.weapon.name === 'Boomerang' ? 3000 : 5000); // Boomerang returns, Trident stays longer
+    }
+}
+
 function update() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -187,32 +211,52 @@ function update() {
 
     // Draw thrown weapon
     drawThrownWeapon();
-    if (player.thrownWeapon) {
-        player.thrownWeapon.x += 5; // Move the thrown weapon
+    if (player.thrownWeapon && player.thrownWeapon.direction !== undefined) {
+        console.log('Updating thrown weapon position');
+        player.thrownWeapon.x += 5 * player.thrownWeapon.direction; // Move the thrown weapon
+
+        // Boomerang logic: reverse direction if it reaches the range limit
+        if (player.thrownWeapon.name === 'Boomerang' && Math.abs(player.thrownWeapon.x - player.x) > player.weapon.range) {
+            player.thrownWeapon.direction *= -1;
+            console.log('Boomerang direction reversed');
+        }
 
         // Check collision with NPC
-        const tridentWidth = 50; // Assuming the trident's width
-        const tridentHeight = 50; // Assuming the trident's height
+        const weaponWidth = 50; // Assuming the weapon's width
+        const weaponHeight = 50; // Assuming the weapon's height
         const npcWidth = 40; // Assuming the NPC's width
         const npcHeight = 100; // Assuming the NPC's height
 
         if (player.thrownWeapon.x < npc.x + npcWidth &&
-            player.thrownWeapon.x + tridentWidth > npc.x &&
+            player.thrownWeapon.x + weaponWidth > npc.x &&
             player.thrownWeapon.y < npc.y + npcHeight &&
-            player.thrownWeapon.y + tridentHeight > npc.y) {
+            player.thrownWeapon.y + weaponHeight > npc.y) {
             npc.health -= player.thrownWeapon.damage;
             npc.isHit = true;
             console.log(`NPC hit by thrown weapon! Health: ${npc.health}`);
+
+            // Store direction before nullifying the thrown weapon
+            const knockbackDirection = player.thrownWeapon.direction;
             player.thrownWeapon = null; // Remove the thrown weapon after collision
+
+            // Apply knockback to NPC
+            if (knockbackDirection) {
+                npc.x += knockbackDirection * knockbackDistance;
+                console.log('Knockback applied to NPC');
+            }
         }
+    } else {
+        console.warn('No thrown weapon to update or direction is undefined.');
     }
 
     // Player controls
     if (keys['ArrowLeft'] && player.x > 0) {
         player.x -= 2;
+        player.facingRight = false; // Update facing direction
     }
     if (keys['ArrowRight'] && player.x < canvas.width) {
         player.x += 2;
+        player.facingRight = true; // Update facing direction
     }
     if (keys['ArrowUp'] && !player.isJumping) {
         player.velocityY = jumpStrength;
@@ -230,9 +274,14 @@ function update() {
         player.rotationAngle = 0; // Reset rotation when not jumping
     }
 
-    // Check if player is on the ground
+    // Check if player is on the ground or on top of the NPC
     if (player.y >= 300) { // Assuming 300 is the ground level
         player.y = 300;
+        player.velocityY = 0;
+        player.isJumping = false;
+    } else if (player.y + 50 >= npc.y && player.x > npc.x - 20 && player.x < npc.x + 20) {
+        // Player stands on top of NPC
+        player.y = npc.y - 50;
         player.velocityY = 0;
         player.isJumping = false;
     }
@@ -257,6 +306,10 @@ function update() {
         console.log(`Player Health: ${player.health}`);
         npc.canAttack = false;
         setTimeout(() => npc.canAttack = true, attackCooldown);
+
+        // Apply knockback to Player
+        player.x -= (npc.x > player.x ? -1 : 1) * knockbackDistance;
+        console.log('Knockback applied to Player');
     }
 
     // Player attack
@@ -274,6 +327,10 @@ function update() {
             npc.isHit = true;
             setTimeout(() => npc.isHit = false, hitEffectDuration);
             console.log(`NPC Health: ${npc.health}`);
+
+            // Apply knockback to NPC
+            npc.x += (player.x > npc.x ? -1 : 1) * knockbackDistance;
+            console.log('Knockback applied to NPC');
         }
 
         player.canAttack = false;
@@ -290,18 +347,14 @@ assignRandomWeapon(npc);
 // Spawn obstacles at regular intervals
 setInterval(spawnObstacle, obstacleSpawnInterval);
 
+// Add event listener for throwing weapons
 window.addEventListener('keydown', (e) => {
     keys[e.key] = true;
     console.log(`Key down: ${e.key}`); // Log key presses
 
     // Throw the trident with Shift key
-    if (e.key === 'Shift' && player.weapon && player.weapon.name === 'Trident' && player.weapon.throwable && !player.isThrowing) {
-        player.isThrowing = true;
-        player.thrownWeapon = { ...player.weapon, x: player.x, y: player.y };
-        setTimeout(() => {
-            player.isThrowing = false;
-            player.thrownWeapon = null;
-        }, 2000); // Reset after 2 seconds
+    if (e.key === 'Shift') {
+        throwWeapon();
     }
 });
 
